@@ -300,9 +300,10 @@ type Collector struct {
 	snmpContext  string
 	snmpEngineID string
 	debugSNMP    bool
+	tos          int
 }
 
-func New(ctx context.Context, target, authName, snmpContext, snmpEngineID string, auth *config.Auth, modules []*NamedModule, logger *slog.Logger, metrics Metrics, conc int, debugSNMP bool) *Collector {
+func New(ctx context.Context, target, authName, snmpContext, snmpEngineID string, auth *config.Auth, modules []*NamedModule, logger *slog.Logger, metrics Metrics, conc int, debugSNMP bool, tos int) *Collector {
 	return &Collector{
 		ctx:          ctx,
 		target:       target,
@@ -315,6 +316,7 @@ func New(ctx context.Context, target, authName, snmpContext, snmpEngineID string
 		metrics:      metrics,
 		concurrency:  conc,
 		debugSNMP:    debugSNMP,
+		tos:          tos,
 	}
 }
 
@@ -458,6 +460,10 @@ func (c Collector) Collect(ch chan<- prometheus.Metric) {
 				g.Context = ctx
 				g.UseUnconnectedUDPSocket = useUnconnectedUDPSocket
 				c.auth.ConfigureSNMP(g, c.snmpContext)
+				// Set TOS socket option if specified
+				if c.tos != 0 {
+					g.Control = scraper.SetTOSSocketOption(c.tos)
+				}
 			})
 			if err = client.Connect(); err != nil {
 				logger.Info("Error connecting to target", "err", err)

@@ -50,6 +50,7 @@ var (
 	concurrency   = kingpin.Flag("snmp.module-concurrency", "The number of modules to fetch concurrently per scrape").Default("1").Int()
 	debugSNMP     = kingpin.Flag("snmp.debug-packets", "Include a full debug trace of SNMP packet traffics.").Default("false").Bool()
 	expandEnvVars = kingpin.Flag("config.expand-environment-variables", "Expand environment variables to source secrets").Default("false").Bool()
+	snmpTOS       = kingpin.Flag("snmp.tos", "IP Type of Service (TOS) / DSCP value to set on SNMP packets (0-255). 0 means no TOS is set.").Default("0").Int()
 	metricsPath   = kingpin.Flag(
 		"web.telemetry-path",
 		"Path under which to expose metrics.",
@@ -164,7 +165,7 @@ func handler(w http.ResponseWriter, r *http.Request, logger *slog.Logger, export
 	sc.mu.RUnlock()
 	logger = logger.With("auth", authName, "target", target)
 	registry := prometheus.NewRegistry()
-	c := collector.New(r.Context(), target, authName, snmpContext, snmpEngineID, auth, nmodules, logger, exporterMetrics, *concurrency, debug)
+	c := collector.New(r.Context(), target, authName, snmpContext, snmpEngineID, auth, nmodules, logger, exporterMetrics, *concurrency, debug, *snmpTOS)
 	registry.MustRegister(c)
 	// Delegate http serving to Prometheus client library, which will call collector.Collect.
 	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
@@ -214,8 +215,12 @@ func main() {
 	if *concurrency < 1 {
 		*concurrency = 1
 	}
+	if *snmpTOS < 0 || *snmpTOS > 255 {
+		logger.Error("TOS value must be between 0 and 255", "tos", *snmpTOS)
+		os.Exit(1)
+	}
 
-	logger.Info("Starting snmp_exporter", "version", version.Info(), "concurrency", concurrency, "debug_snmp", debugSNMP)
+	logger.Info("Starting snmp_exporter", "version", version.Info(), "concurrency", concurrency, "debug_snmp", debugSNMP, "tos", *snmpTOS)
 	logger.Info("operational information", "build_context", version.BuildContext())
 
 	prometheus.MustRegister(versioncollector.NewCollector("snmp_exporter"))
