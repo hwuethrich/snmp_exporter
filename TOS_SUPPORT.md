@@ -13,11 +13,28 @@ The TOS/DSCP field in IP headers is used by network devices to classify and prio
 
 ## Usage
 
-Use the `--snmp.tos` command-line flag to set the TOS value:
+TOS can be set globally for all targets or per-target via URL parameter.
+
+### Global Setting (Command-Line Flag)
+
+Set a default TOS value for all SNMP targets:
 
 ```bash
-./snmp_exporter --snmp.tos=46
+./snmp_exporter --snmp.tos=184
 ```
+
+### Per-Target Setting (URL Parameter)
+
+Override the global TOS setting for specific targets using the `snmp_tos` URL parameter:
+
+```
+http://localhost:9116/snmp?target=192.0.0.8&snmp_tos=184
+```
+
+The URL parameter takes precedence over the command-line flag, allowing you to:
+- Set different TOS values for different targets
+- Override the global setting for specific high-priority devices
+- Use the default (0) for some targets while setting TOS for others
 
 ### TOS Value Range
 
@@ -63,15 +80,53 @@ On non-Unix platforms (e.g., Windows), TOS setting may not be supported. The exp
 
 ## Configuration Examples
 
-### Basic Usage
+### Basic Usage (Global)
 ```bash
-# Start with TOS value 184 (EF - Expedited Forwarding)
+# Start with TOS value 184 (EF - Expedited Forwarding) for all targets
 ./snmp_exporter --snmp.tos=184 --config.file=snmp.yml
+```
+
+### Per-Target Usage with Prometheus
+```yaml
+# prometheus.yml
+scrape_configs:
+  - job_name: 'snmp-high-priority'
+    static_configs:
+      - targets:
+        - 192.168.1.1  # Critical router
+        - 192.168.1.2  # Critical switch
+    metrics_path: /snmp
+    params:
+      module: [if_mib]
+      snmp_tos: ['184']  # High priority for these targets
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: localhost:9116
+
+  - job_name: 'snmp-normal-priority'
+    static_configs:
+      - targets:
+        - 192.168.2.1  # Regular device
+    metrics_path: /snmp
+    params:
+      module: [if_mib]
+      snmp_tos: ['0']  # Best effort for these targets
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: localhost:9116
 ```
 
 ### With Other Options
 ```bash
-# Combine TOS with other common options
+# Combine global TOS with other common options
 ./snmp_exporter \
   --snmp.tos=184 \
   --config.file=/etc/snmp_exporter/snmp.yml \

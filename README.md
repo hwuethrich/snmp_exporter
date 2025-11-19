@@ -101,10 +101,16 @@ It is also possible when using SNMPv3 to supply an optional `snmp_engineid` para
 
 ### Quality of Service (QoS) / TOS Support
 
-You can set the IP Type of Service (TOS) / DSCP value on SNMP packets using the `--snmp.tos` command-line flag. This is useful for prioritizing SNMP monitoring traffic in networks with QoS policies:
+You can set the IP Type of Service (TOS) / DSCP value on SNMP packets to prioritize monitoring traffic in networks with QoS policies. TOS can be set globally via command-line flag or per-target via URL parameter:
 
+**Global (all targets):**
 ```sh
 ./snmp_exporter --snmp.tos=184
+```
+
+**Per-target (URL parameter overrides global setting):**
+```
+http://localhost:9116/snmp?target=192.0.0.8&snmp_tos=184
 ```
 
 Valid values are 0-255, where 0 (default) means no TOS is set. Common values include 184 (EF - Expedited Forwarding) for high-priority traffic. See [TOS_SUPPORT.md](TOS_SUPPORT.md) for detailed information and examples.

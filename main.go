@@ -20,6 +20,7 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -126,6 +127,23 @@ func handler(w http.ResponseWriter, r *http.Request, logger *slog.Logger, export
 		return
 	}
 
+	// Parse TOS value from query parameter, falling back to CLI flag default
+	tos := *snmpTOS
+	if tosParam := query.Get("snmp_tos"); tosParam != "" {
+		if len(query["snmp_tos"]) > 1 {
+			http.Error(w, "'snmp_tos' parameter must only be specified once", http.StatusBadRequest)
+			snmpRequestErrors.Inc()
+			return
+		}
+		tosValue, err := strconv.Atoi(tosParam)
+		if err != nil || tosValue < 0 || tosValue > 255 {
+			http.Error(w, "'snmp_tos' parameter must be an integer between 0 and 255", http.StatusBadRequest)
+			snmpRequestErrors.Inc()
+			return
+		}
+		tos = tosValue
+	}
+
 	queryModule := query["module"]
 	if len(queryModule) == 0 {
 		queryModule = append(queryModule, "if_mib")
@@ -165,7 +183,7 @@ func handler(w http.ResponseWriter, r *http.Request, logger *slog.Logger, export
 	sc.mu.RUnlock()
 	logger = logger.With("auth", authName, "target", target)
 	registry := prometheus.NewRegistry()
-	c := collector.New(r.Context(), target, authName, snmpContext, snmpEngineID, auth, nmodules, logger, exporterMetrics, *concurrency, debug, *snmpTOS)
+	c := collector.New(r.Context(), target, authName, snmpContext, snmpEngineID, auth, nmodules, logger, exporterMetrics, *concurrency, debug, tos)
 	registry.MustRegister(c)
 	// Delegate http serving to Prometheus client library, which will call collector.Collect.
 	h := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
