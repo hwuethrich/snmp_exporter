@@ -99,6 +99,21 @@ The `snmp_context` parameter in the URL would override the `context_name` parame
 It is also possible when using SNMPv3 to supply an optional `snmp_engineid` parameter in the URL, like this:
 <http://localhost:9116/snmp?auth=my_secure_v3&module=ddwrt&target=192.0.0.8&snmp_engineid=800004f7059c7a0307400529>
 
+### Quality of Service (QoS) / TOS Support
+
+You can set the IP Type of Service (TOS) / DSCP value on SNMP packets to prioritize monitoring traffic in networks with QoS policies. TOS can be set globally via command-line flag or per-target via URL parameter:
+
+**Global (all targets):**
+```sh
+./snmp_exporter --snmp.tos=184
+```
+
+**Per-target (URL parameter overrides global setting):**
+```
+http://localhost:9116/snmp?target=192.0.0.8&snmp_tos=184
+```
+
+Valid values are 0-255, where 0 (default) means no TOS is set. Common values include 184 (EF - Expedited Forwarding) for high-priority traffic. See [TOS_SUPPORT.md](TOS_SUPPORT.md) for detailed information and examples.
 
 ## Multi-Module Handling
 The multi-module functionality allows you to specify multiple modules, enabling the retrieval of information from several modules in a single scrape.
